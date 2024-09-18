@@ -2,8 +2,6 @@
 
 This project is a web application that visualizes electricity prices using data from the Strømpris API. It includes a module strompris.py for fetching and processing the data, and app.py for running a FastAPI server with Uvicorn to serve the web interface. The web application displays a chart created with Altair and offers user input fields to modify chart parameters. Additionally, the project includes documentation generated with FastAPI and Sphinx.
 
-![CleanShot 2024-09-18 at 15 12 42@2x](https://github.com/user-attachments/assets/9418f7d7-8b00-48ea-9ef7-d8d3b1ff10ef)
-
 ## Dependencies
 This project requires Python 3.8 or later. The following packages are necessary to run the application:
 
