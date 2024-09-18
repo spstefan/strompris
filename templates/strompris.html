@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Strømpris</title>
+    <style>
+      body {
+        margin: 10;
+        font-family: Helvetica, Arial, sans-serif;
+        width: 50%;
+      }
+
+      .error {
+        color: red;
+      }
+      .topnav {
+        overflow: hidden;
+        background-color: #333;
+      }
+
+      .topnav a {
+        float: left;
+        color: #f2f2f2;
+        text-align: center;
+        padding: 14px 16px;
+        text-decoration: none;
+        font-size: 17px;
+      }
+
+      .topnav a:hover {
+        background-color: #69dadb;
+        color: black;
+      }
+
+      .topnav a.active {
+        background-color: #193498;
+        color: white;
+      }
+
+    /* Container for the entire form */
+    form#price-filter {
+      max-width: 600px;
+      margin: 0 auto;
+      font-family: Arial, sans-serif;
+    }
+
+    /* Remove default fieldset styling */
+    fieldset {
+      border: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Styling for legends */
+    legend {
+      font-size: 1.2em;
+      margin-bottom: 0.5em;
+      font-weight: bold;
+    }
+
+    /* Layout for the time selector section */
+    #time-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1em;
+      margin-bottom: 1.5em;
+    }
+
+    #time-selector div {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    #time-selector label {
+      display: block;
+      margin-bottom: 0.3em;
+      font-weight: bold;
+    }
+
+    /* Styling for input fields */
+    input[type="date"],
+    input[type="number"] {
+      width: 100%;
+      padding: 0.6em;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    /* Layout for the location selector */
+    #locations {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1em;
+    }
+
+    #locations label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    #locations input[type="checkbox"] {
+      margin-right: 0.5em;
+    }
+
+    /* Styling for the refresh button */
+    #refresh-button {
+      text-align: center;
+      margin-top: 1.5em;
+    }
+
+    input[type="submit"] {
+      background-color: #007BFF;
+      color: #fff;
+      padding: 0.7em 2em;
+      border: none;
+      border-radius: 4px;
+      font-size: 1em;
+      cursor: pointer;
+    }
+
+    input[type="submit"]:hover {
+      background-color: #0056b3;
+    }
+
+
+    </style>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm//vega@5"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm//vega-lite@5.6.0"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm//vega-embed@6"
+    ></script>
+  </head>
+  <body>
+
+    <!-- Add Navigation Bar with links to docs (both FastAPI and your sphinx docs) -->
+    <div class="topnav">
+      <a class="active" href="/">Home</a>
+      <a href="/docs">FastAPI Docs</a>
+      <a href="/help">Help</a>
+    </div>
+
+    <!--Header-->
+    <h1>Interaktiv Strømpris-kalkulator for ditt område</h1>
+
+    <!-- Create Form -->
+    <div id="vis">
+      <form action="javascript:refreshPlot()" id="price-form">
+    </div>
+
+    <form id="price-filter">
+      <!-- Time Selector Section -->
+      <fieldset id="time-selector">
+        <legend>Tidsvalg</legend>
+        <div id="end-date-wrapper">
+          <label for="end_date">Sluttdato:</label>
+          <input type="date" id="end_date" name="end_date" min="2023-09-01" value="2023-11-11" />
+        </div>
+        <div id="preceding-days">
+          <label for="days">Antall dager før sluttdato:</label>
+          <input type="number" id="days" name="days" value="7" />
+        </div>
+      </fieldset>
+    
+      <!-- Location Selector Section -->
+      <fieldset id="location-selector">
+        <legend>Velg byer</legend>
+        <div id="locations">
+          {% for location_code, location_name in location_codes.items() %}
+          <label>
+            <input type="checkbox" name="locations" value="{{ location_code }}" />
+            {{ location_name }}
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+    
+      <!-- Refresh Button -->
+      <div id="refresh-button">
+        <input type="submit" id="refresh" name="refresh" value="Oppdater" />
+      </div>
+    </form>
+
+    <script type="text/javascript">
+      async function refreshPlot() {
+        // begin constructing URL to request the plot JSON
+        const plotUrl = new URL(
+          `${document.location.protocol}//${document.location.host}/plot_prices.json`,
+        );
+
+        // get inputs from the form
+
+        // get selected location checkboxes
+        for (checkbox of document.querySelectorAll("input[name=locations]")) {
+          if (checkbox.checked) {
+            plotUrl.searchParams.append("locations", checkbox.value);
+          }
+        }
+
+        var endInput = document.querySelector('input[name="end"]');
+        if (endInput) {
+          plotUrl.searchParams.append("end", endInput.value);
+        } else {
+          console.warn('No input with name="end"');
+        }
+
+        var daysInput = document.querySelector('input[name="days"]');
+        if (daysInput) {
+          plotUrl.searchParams.append("days", daysInput.value);
+        } else {
+          console.warn('No input with name="days"');
+        }
+
+        console.log(`requesting new chart from ${plotUrl.href}`);
+        var response = await fetch(plotUrl.href);
+        var spec = await response.json();
+
+        var embedOpt = { mode: "vega-lite" };
+
+        function showError(el, error) {
+          el.innerHTML =
+            '<div class="error" style="color:red;">' +
+            "<p>JavaScript Error: " +
+            error.message +
+            "</p>" +
+            "<p>This usually means there's a typo in your chart specification. " +
+            "See the javascript console for the full traceback.</p>" +
+            "</div>";
+          throw error;
+        }
+        const el = document.getElementById("vis");
+        vegaEmbed("#vis", spec, embedOpt).catch((error) =>
+          showError(el, error),
+        );
+      }
+      refreshPlot();
+    </script>
+  
+  <p><a 
+    href="https://www.hvakosterstrommen.no">
+    <img src="https://ik.imagekit.io/ajdfkwyt/hva-koster-strommen/strompriser-levert-av-hvakosterstrommen_oTtWvqeiB.png" 
+    alt="Strømpriser levert av Hva koster strømmen.no" width="200" height="45">
+  </a></p>
+
+  </body>
+</html>
